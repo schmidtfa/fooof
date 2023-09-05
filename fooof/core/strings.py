@@ -313,6 +313,7 @@ def gen_results_fm_str(fm, concise=False):
         'Goodness of fit metrics:',
         'R^2 of model fit is {:5.4f}'.format(fm.r_squared_),
         'Error of the fit is {:5.4f}'.format(fm.error_),
+        'BIC of the fit is {:5.4f}'.format(fm.bic_),
         '',
 
         # Footer

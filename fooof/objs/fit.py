@@ -165,7 +165,7 @@ class FOOOF():
 
         # Set input settings
         self.peak_width_limits = peak_width_limits
-        self.max_n_peaks = max_n_peaks
+        self.max_n_peaks_tmp = max_n_peaks
         self.min_peak_height = min_peak_height
         self.peak_threshold = peak_threshold
         self.aperiodic_mode = aperiodic_mode
@@ -291,9 +291,10 @@ class FOOOF():
             self.peak_params_ = np.empty([0, 3])
             self.r_squared_ = np.nan
             self.error_ = np.nan
+            self.bic_ = np.nan
 
             self.fooofed_spectrum_ = None
-
+            
             self._spectrum_flat = None
             self._spectrum_peak_rm = None
             self._ap_fit = None
@@ -377,6 +378,7 @@ class FOOOF():
         self.peak_params_ = fooof_result.peak_params
         self.r_squared_ = fooof_result.r_squared
         self.error_ = fooof_result.error
+        self.bic_ = fooof_result.bic
 
         self._check_loaded_results(fooof_result._asdict())
 
@@ -478,31 +480,45 @@ class FOOOF():
             # Flatten the power spectrum using fit aperiodic fit
             self._spectrum_flat = self.power_spectrum - self._ap_fit
 
+            #initialize for loop here -> NOTE: this is super inefficient and hacky, but should work 
+            model_fits = []
+
+            for n_peaks in range(self.max_n_peaks_tmp):
             # Find peaks, and fit them with gaussians
-            self.gaussian_params_ = self._fit_peaks(np.copy(self._spectrum_flat))
 
-            # Calculate the peak fit
-            #   Note: if no peaks are found, this creates a flat (all zero) peak fit
-            self._peak_fit = gen_periodic(self.freqs, np.ndarray.flatten(self.gaussian_params_))
+                self.max_n_peaks = n_peaks
+                self.gaussian_params_ = self._fit_peaks(np.copy(self._spectrum_flat))
 
-            # Create peak-removed (but not flattened) power spectrum
-            self._spectrum_peak_rm = self.power_spectrum - self._peak_fit
+                # Calculate the peak fit
+                #   Note: if no peaks are found, this creates a flat (all zero) peak fit
+                self._peak_fit = gen_periodic(self.freqs, np.ndarray.flatten(self.gaussian_params_))
 
-            # Run final aperiodic fit on peak-removed power spectrum
-            #   This overwrites previous aperiodic fit, and recomputes the flattened spectrum
-            self.aperiodic_params_ = self._simple_ap_fit(self.freqs, self._spectrum_peak_rm)
-            self._ap_fit = gen_aperiodic(self.freqs, self.aperiodic_params_)
-            self._spectrum_flat = self.power_spectrum - self._ap_fit
+                # Create peak-removed (but not flattened) power spectrum
+                self._spectrum_peak_rm = self.power_spectrum - self._peak_fit
 
-            # Create full power_spectrum model fit
-            self.fooofed_spectrum_ = self._peak_fit + self._ap_fit
+                # Run final aperiodic fit on peak-removed power spectrum
+                #   This overwrites previous aperiodic fit, and recomputes the flattened spectrum
+                self.aperiodic_params_ = self._simple_ap_fit(self.freqs, self._spectrum_peak_rm)
+                self._ap_fit = gen_aperiodic(self.freqs, self.aperiodic_params_)
+                self._spectrum_flat = self.power_spectrum - self._ap_fit
 
-            # Convert gaussian definitions to peak parameters
-            self.peak_params_ = self._create_peak_params(self.gaussian_params_)
+                # Create full power_spectrum model fit
+                self.fooofed_spectrum_ = self._peak_fit + self._ap_fit
 
-            # Calculate R^2 and error of the model fit
-            self._calc_r_squared()
-            self._calc_error()
+                # Convert gaussian definitions to peak parameters
+                self.peak_params_ = self._create_peak_params(self.gaussian_params_)
+
+                # Calculate R^2 and error of the model fit
+                self._calc_r_squared()
+                self._calc_error()
+                self._calculate_bic()
+
+                model_fits.append(self.copy())
+
+            bics = np.array([fit.bic_ for fit in model_fits])
+
+            self = model_fits[np.nanargmin(bics)] #pick the best model according to bic
+
 
         except FitError:
 
@@ -1495,3 +1511,12 @@ class FOOOF():
 
         self.fooofed_spectrum_, self._peak_fit, self._ap_fit = gen_model(
             self.freqs, self.aperiodic_params_, self.gaussian_params_, return_components=True)
+
+
+    def _calculate_bic(self):
+        """Calculates BIC using the model error from fooof"""
+        n = 1/(self.freqs[1] - self.freqs[0]) * len(self.freqs)
+        error = self.error_ 
+        num_params = self.max_n_peaks #do the bic sperately for knee and no knee fits so this just reflects n_peaks
+        self.bic_ = n * np.log(error) + num_params * np.log(n)
+        

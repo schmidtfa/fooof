@@ -75,7 +75,7 @@ class FOOOFMetaData(namedtuple('FOOOFMetaData', ['freq_range', 'freq_res'])):
 
 
 class FOOOFResults(namedtuple('FOOOFResults', ['aperiodic_params', 'peak_params',
-                                               'r_squared', 'error', 'gaussian_params'])):
+                                               'r_squared', 'error', 'bic', 'gaussian_params'])):
     """Model results from parameterizing a power spectrum.
 
     Parameters
