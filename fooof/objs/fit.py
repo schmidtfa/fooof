@@ -159,7 +159,7 @@ class FOOOF():
     """
     # pylint: disable=attribute-defined-outside-init
 
-    def __init__(self, peak_width_limits=(0.5, 12.0), max_n_peaks=np.inf, min_peak_height=0.0,
+    def __init__(self, peak_width_limits=(0.5, 12.0), max_n_peaks=0, min_peak_height=0.0,
                  peak_threshold=2.0, aperiodic_mode='fixed', verbose=True):
         """Initialize object with desired settings."""
 
