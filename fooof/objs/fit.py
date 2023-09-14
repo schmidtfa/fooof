@@ -135,6 +135,8 @@ class FOOOF():
         R-squared of the fit between the input power spectrum and the full model fit.
     error_ : float
         Error of the full model fit.
+    bic_ : float
+        bayesian information criterion of the full model fit.
     n_peaks_ : int
         The number of peaks fit in the model.
     has_data : bool
@@ -1517,6 +1519,7 @@ class FOOOF():
         """Calculates BIC using the model error from fooof"""
         n = 1/(self.freqs[1] - self.freqs[0]) * len(self.freqs)
         error = self.error_ 
-        num_params = self.max_n_peaks #do the bic sperately for knee and no knee fits so this just reflects n_peaks
+        num_params = self.max_n_peaks * 2 #do the bic sperately for knee and no knee fits so this just reflects n_peaks
+        #Is npeaks*2 because peaks are modelled as gaussians. this needs mean and std.
         self.bic_ = n * np.log(error) + num_params * np.log(n)
         
